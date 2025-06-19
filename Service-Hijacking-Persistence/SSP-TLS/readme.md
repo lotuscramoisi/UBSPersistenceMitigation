@@ -1,0 +1,1 @@
+Currently not working, this method was discovered during this work and has not been tried yet. It seems possible to redefine TLS using SSP and could achieve persistence.

